@@ -56,20 +56,26 @@ def split_text(text, chunk_size, overlap):
                 start = space + 1
 
 
-def chunk_pages(pages, chunk_size, overlap):
-    """Turn loader pages into chunks that keep the page's metadata.
+def chunk_pages(units, chunk_size, overlap):
+    """Turn loader units (PDF pages or text sections) into chunks that keep their metadata.
 
-    Returns [{'text', 'source', 'page', 'chunk_index'}, ...] where chunk_index
-    counts from 0 within each page.
+    Returns [{'text', 'source', 'page' or 'line', 'chunk_index'}, ...] where
+    chunk_index counts from 0 within each unit.
+    - PDF chunks inherit the page number.
+    - Text chunks get the exact line they start on: every chunk is a substring
+      of the unit's text, so we find where it starts and count the newlines before it.
     """
     chunks = []
-    for page in pages:
-        texts = [t for t in split_text(page["text"], chunk_size, overlap) if t]  # drop empty pieces
+    for unit in units:
+        texts = [t for t in split_text(unit["text"], chunk_size, overlap) if t]  # drop empty pieces
+        search_from = 0
         for i, text in enumerate(texts):
-            chunks.append({
-                "text": text,
-                "source": page["source"],
-                "page": page["page"],
-                "chunk_index": i,
-            })
+            chunk = {"text": text, "source": unit["source"], "chunk_index": i}
+            if "page" in unit:
+                chunk["page"] = unit["page"]
+            else:
+                pos = unit["text"].find(text, search_from)
+                chunk["line"] = unit["line"] + unit["text"].count("\n", 0, pos)
+                search_from = pos + 1  # the next chunk starts after this one's start
+            chunks.append(chunk)
     return chunks

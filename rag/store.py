@@ -28,8 +28,9 @@ def get_collection():
 
 
 def chunk_id(chunk):
-    """A stable, readable ID like 'tcs-01-finite-automata.pdf::p3::c0'."""
-    return f"{chunk['source']}::p{chunk['page']}::c{chunk['chunk_index']}"
+    """A stable, readable ID like 'tcs-01-finite-automata.pdf::p3::c0' or 'notes.md::l42::c0'."""
+    where = f"p{chunk['page']}" if "page" in chunk else f"l{chunk['line']}"
+    return f"{chunk['source']}::{where}::c{chunk['chunk_index']}"
 
 
 def embed_documents(texts):
@@ -63,13 +64,15 @@ def add_chunks(collection, chunks, fingerprint):
     from; index.py compares it on the next run to decide what to re-embed.
     """
     texts = [c["text"] for c in chunks]
+    metadatas = []
+    for c in chunks:
+        meta = {"source": c["source"], "chunk_index": c["chunk_index"], "fingerprint": fingerprint}
+        # PDFs have 'page', text files have 'line' (Chroma metadata can't hold None).
+        meta.update({key: c[key] for key in ("page", "line") if key in c})
+        metadatas.append(meta)
     collection.upsert(
         ids=[chunk_id(c) for c in chunks],
         embeddings=embed_documents(texts),
         documents=texts,
-        metadatas=[
-            {"source": c["source"], "page": c["page"], "chunk_index": c["chunk_index"],
-             "fingerprint": fingerprint}
-            for c in chunks
-        ],
+        metadatas=metadatas,
     )

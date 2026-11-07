@@ -17,19 +17,24 @@ NOT_FOUND = "I can't find this in your notes."
 #   citation, so the format is described without a fake file name.
 # - Slides are terse bullets ("Tibor Radó 1962: Busy Beaver"); without the note-form
 #   hint the model refused questions whose answer was in the excerpt.
+# - For a .txt excerpt the model once cited just "[notes.txt]", so the rule now
+#   says explicitly that the page/line number is part of the label.
 SYSTEM_PROMPT = f"""You answer questions about a student's lecture notes.
 
 Rules:
 - Use ONLY the information in the context excerpts below. Do not use outside knowledge.
 - The excerpts are lecture slides written as short bullet points. If they contain the answer, even in note form, answer the question.
-- After every statement, cite the excerpt it comes from by copying the label in square brackets that appears above that excerpt, character for character.
+- After every statement, cite the excerpt it comes from by copying the label in square brackets that appears above that excerpt, character for character, including the page or line number.
 - If the excerpts do not contain the answer, reply exactly: "{NOT_FOUND}"
 - Be concise. Answer in the language of the question."""
 
 
 def citation(hit):
-    """The label a chunk gets in the prompt, which is also the citation format."""
-    return f"[{hit['source']}, p. {hit['page']}]"
+    """The label a chunk gets in the prompt, which is also the citation format:
+    [file.pdf, p. 3] for PDFs, [notes.md, line 42] for Markdown/TXT."""
+    if hit.get("page") is not None:
+        return f"[{hit['source']}, p. {hit['page']}]"
+    return f"[{hit['source']}, line {hit['line']}]"
 
 
 def build_messages(question, hits):

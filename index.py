@@ -1,8 +1,8 @@
-"""Milestones 4 + 8: index the PDFs in data/ into Chroma, incrementally.
+"""Milestones 4 + 8 + 10: index the PDF, Markdown and TXT files in data/ into Chroma, incrementally.
 
 Run:  python index.py
 
-For each PDF a fingerprint (hash of contents + indexing settings) is compared
+For each file a fingerprint (hash of contents + indexing settings) is compared
 with the one stored in Chroma:
   unchanged       -> skipped, nothing is embedded
   new / changed   -> its old chunks are deleted, then load -> chunk -> embed -> store
@@ -16,7 +16,7 @@ import time
 import config
 from rag import store
 from rag.chunker import chunk_pages
-from rag.loader import load_pdf
+from rag.loader import SUPPORTED_SUFFIXES, load_file
 
 
 def fingerprint(path):
@@ -33,7 +33,8 @@ def fingerprint(path):
 
 
 def main():
-    pdfs = sorted(config.DATA_DIR.glob("*.pdf"))
+    files = sorted(p for p in config.DATA_DIR.iterdir()
+                   if p.is_file() and p.suffix.lower() in SUPPORTED_SUFFIXES)
     collection = store.get_collection()
     indexed = store.indexed_files(collection)
     print(f"Collection '{config.COLLECTION_NAME}': {collection.count()} chunks "
@@ -43,13 +44,13 @@ def main():
     counts = {"unchanged": 0, "new": 0, "changed": 0, "removed": 0}
 
     # 1. Files that disappeared from data/: remove their chunks.
-    for source in sorted(indexed.keys() - {p.name for p in pdfs}):
+    for source in sorted(indexed.keys() - {p.name for p in files}):
         store.delete_file(collection, source)
         counts["removed"] += 1
         print(f"  removed    {source}")
 
     # 2. New or changed files: re-embed. Unchanged files: skip.
-    for path in pdfs:
+    for path in files:
         fp = fingerprint(path)
         if indexed.get(path.name) == fp:
             counts["unchanged"] += 1
@@ -58,9 +59,10 @@ def main():
 
         status = "new" if path.name not in indexed else "changed"
         start = time.perf_counter()
-        chunks = chunk_pages(load_pdf(path), config.CHUNK_SIZE, config.CHUNK_OVERLAP)
+        chunks = chunk_pages(load_file(path), config.CHUNK_SIZE, config.CHUNK_OVERLAP)
         store.delete_file(collection, path.name)
-        store.add_chunks(collection, chunks, fp)
+        if chunks:  # an empty file just loses its old chunks
+            store.add_chunks(collection, chunks, fp)
         counts[status] += 1
         print(f"  {status:9}  {path.name}: {len(chunks)} chunks embedded "
               f"({time.perf_counter() - start:.1f}s)")
@@ -68,8 +70,8 @@ def main():
     summary = ", ".join(f"{n} {k}" for k, n in counts.items())
     print(f"\nDone in {time.perf_counter() - total_start:.1f}s ({summary}). "
           f"Collection now holds {collection.count()} chunks.")
-    if not pdfs:
-        print(f"Note: no PDFs found in {config.DATA_DIR}")
+    if not files:
+        print(f"Note: no {'/'.join(sorted(SUPPORTED_SUFFIXES))} files found in {config.DATA_DIR}")
     return 0
 
 

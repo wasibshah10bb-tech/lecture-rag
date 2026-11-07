@@ -8,6 +8,7 @@ import sys
 
 import config
 from rag import store
+from rag.generator import citation
 from rag.retriever import retrieve
 
 PREVIEW_CHARS = 300
@@ -18,7 +19,7 @@ def print_hits(hits):
         preview = " ".join(h["text"].split())  # collapse newlines for display
         if len(preview) > PREVIEW_CHARS:
             preview = preview[:PREVIEW_CHARS] + "..."
-        print(f"\n#{rank}  score {h['score']:.3f}  [{h['source']}, p. {h['page']}]")
+        print(f"\n#{rank}  score {h['score']:.3f}  {citation(h)}")
         print(f"    {preview}")
 
 

@@ -17,8 +17,8 @@ from rag import store
 from rag.generator import NOT_FOUND, answer, citation
 from rag.retriever import retrieve
 
-# Matches citations like [tcs-01-finite-automata.pdf, p. 17]
-CITATION_RE = re.compile(r"\[([^\[\]]+?\.pdf),\s*p\.\s*(\d+)\]")
+# Matches citations like [tcs-01-finite-automata.pdf, p. 17] or [notes.md, line 42]
+CITATION_RE = re.compile(r"\[([^\[\]]+?\.(?:pdf|md|txt)),\s*(p\.|line)\s*(\d+)\]")
 
 
 def load_questions():
@@ -53,7 +53,7 @@ def full_run(questions, collection):
         reply, hits = answer(q["question"], collection=collection)
         refused = NOT_FOUND.rstrip(".").lower() in reply.lower()
         gated = hits[0]["score"] < config.SIMILARITY_THRESHOLD
-        cited = {f"{src}, p. {page}" for src, page in CITATION_RE.findall(reply)}
+        cited = {f"{src}, {kind} {num}" for src, kind, num in CITATION_RE.findall(reply)}
         retrieved = {citation(h)[1:-1] for h in hits}  # labels the model actually saw
 
         if q["expect"] == "refuse":

@@ -14,7 +14,8 @@ QUERY_PREFIX = "search_query: "
 
 def retrieve(question, k=None, collection=None):
     """Return the k most similar chunks, best first:
-    [{'text', 'source', 'page', 'chunk_index', 'score'}, ...]
+    [{'text', 'source', 'page', 'line', 'chunk_index', 'score'}, ...]
+    ('page' is set for PDFs, 'line' for Markdown/TXT; the other one is None.)
 
     score = cosine similarity = 1 - cosine distance. 1.0 would mean "same
     direction"; unrelated text scores clearly lower. Absolute values depend on
@@ -33,7 +34,8 @@ def retrieve(question, k=None, collection=None):
         hits.append({
             "text": text,
             "source": meta["source"],
-            "page": meta["page"],
+            "page": meta.get("page"),
+            "line": meta.get("line"),
             "chunk_index": meta["chunk_index"],
             "score": 1 - distance,
         })
