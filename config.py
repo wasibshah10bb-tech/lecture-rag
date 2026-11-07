@@ -25,6 +25,12 @@ COLLECTION_NAME = "lecture_notes"
 
 # --- Retrieval ---
 TOP_K = 5                       # how many chunks to retrieve per question
+# If even the best chunk is less similar than this, refuse without calling the LLM.
+# Chosen from `python eval_questions.py --scores-only`: answerable questions scored
+# 0.578-0.835, off-topic ones 0.505-0.688 (they overlap!). The gate is set just below
+# the lowest answerable score, because a question it wrongly blocks can never be
+# answered, while a wrongly passed one can still be refused by the LLM.
+SIMILARITY_THRESHOLD = 0.55
 
 # --- Generation ---
 LLM_TEMPERATURE = 0             # 0 = always pick the most likely word: same question, same answer
