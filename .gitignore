@@ -1,0 +1,12 @@
+# Virtual environment
+.venv/
+
+# My lecture material (never commit)
+data/
+
+# Persistent Chroma vector store
+chroma_db/
+
+# Python bytecode
+__pycache__/
+*.pyc
