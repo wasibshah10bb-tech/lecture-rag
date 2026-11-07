@@ -114,3 +114,7 @@ Python 3.13 · Ollama (`qwen2.5:7b`, `nomic-embed-text`) · ChromaDB · pypdf ·
 - Diagrams don't survive text extraction, so questions about them retrieve poorly.
 - Each question is answered on its own, with no chat memory, so follow-ups like "and why?" don't work.
 - Changes to the loader or chunker *code* aren't detected by incremental indexing. Delete `chroma_db/` to rebuild.
+
+## License
+
+[MIT](LICENSE)
