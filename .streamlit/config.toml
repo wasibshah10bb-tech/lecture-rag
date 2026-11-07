@@ -1,0 +1,5 @@
+# Project-level Streamlit settings (read automatically by `streamlit run` from this folder).
+
+[browser]
+# Streamlit sends anonymous usage statistics by default. This app must stay fully local.
+gatherUsageStats = false
