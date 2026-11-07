@@ -1,5 +1,10 @@
 # Project-level Streamlit settings (read automatically by `streamlit run` from this folder).
 
+[server]
+# Only accept connections from this machine (not from other devices on the network).
+# This also stops Streamlit from looking up the public IP address at startup.
+address = "localhost"
+
 [browser]
 # Streamlit sends anonymous usage statistics by default. This app must stay fully local.
 gatherUsageStats = false
