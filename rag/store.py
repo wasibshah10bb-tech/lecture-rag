@@ -46,15 +46,30 @@ def delete_file(collection, source):
     collection.delete(where={"source": source})
 
 
-def add_chunks(collection, chunks):
-    """Embed chunks and store them with their text and metadata."""
+def indexed_files(collection):
+    """Return {source: fingerprint} for every file that has chunks in the collection.
+
+    All chunks of a file carry the same fingerprint, so reading any of them is enough.
+    Chunks indexed before fingerprints existed get None, so they count as changed.
+    """
+    result = collection.get(include=["metadatas"])
+    return {m["source"]: m.get("fingerprint") for m in result["metadatas"]}
+
+
+def add_chunks(collection, chunks, fingerprint):
+    """Embed chunks and store them with their text and metadata.
+
+    The fingerprint identifies the file version (and settings) these chunks came
+    from; index.py compares it on the next run to decide what to re-embed.
+    """
     texts = [c["text"] for c in chunks]
     collection.upsert(
         ids=[chunk_id(c) for c in chunks],
         embeddings=embed_documents(texts),
         documents=texts,
         metadatas=[
-            {"source": c["source"], "page": c["page"], "chunk_index": c["chunk_index"]}
+            {"source": c["source"], "page": c["page"], "chunk_index": c["chunk_index"],
+             "fingerprint": fingerprint}
             for c in chunks
         ],
     )
