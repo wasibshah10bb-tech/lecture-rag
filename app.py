@@ -11,7 +11,8 @@ import streamlit as st
 
 import config
 from rag import store
-from rag.generator import NOT_FOUND, answer, citation
+from rag.citations import problems
+from rag.generator import answer, citation, is_refusal
 
 
 @st.cache_resource
@@ -42,11 +43,11 @@ with st.form("ask"):
 
 if submitted and question.strip():
     with st.spinner("Thinking... (a 7B model on CPU can take a minute)"):
-        reply, hits = answer(question.strip(), collection=collection)
+        reply, hits, report = answer(question.strip(), collection=collection)
 
     # Answer, and which layer refused if it was a refusal (see generator.answer).
     st.subheader("Answer")
-    if NOT_FOUND.rstrip(".").lower() in reply.lower():
+    if is_refusal(reply):
         st.warning(reply)
         if hits[0]["score"] < config.SIMILARITY_THRESHOLD:
             st.caption(f"Refused by the similarity threshold: the best chunk scored "
@@ -57,6 +58,15 @@ if submitted and question.strip():
                        "but the model judged that they don't answer the question.")
     else:
         st.markdown(reply)
+        # Citation check (rag/citations.py): repairs are info, mismatches are warnings.
+        for wrong, right in report["repaired"]:
+            st.info(f"Citation repaired: [{wrong}] → [{right}] (file-name typo)")
+        notes = [n for n in problems(report) if not n.startswith("repaired")]
+        for note in notes:
+            st.warning(f"Citation check: {note}")
+        if not report["repaired"] and not notes:
+            n = len(report["valid"])
+            st.caption(f"✓ {'The citation matches' if n == 1 else f'All {n} citations match'} the sources below.")
 
     # Every chunk the model was given, so citations can be checked.
     st.subheader("Sources given to the model")

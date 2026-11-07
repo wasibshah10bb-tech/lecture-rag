@@ -5,7 +5,8 @@ pasted into the prompt. Everything it is allowed to know is in that prompt.
 """
 
 import config
-from rag import ollama_client
+from rag import citations, ollama_client
+from rag.citations import citation  # the label format; re-exported for ask.py, app.py, ...
 from rag.retriever import retrieve
 
 NOT_FOUND = "I can't find this in your notes."
@@ -29,12 +30,9 @@ Rules:
 - Be concise. Answer in the language of the question."""
 
 
-def citation(hit):
-    """The label a chunk gets in the prompt, which is also the citation format:
-    [file.pdf, p. 3] for PDFs, [notes.md, line 42] for Markdown/TXT."""
-    if hit.get("page") is not None:
-        return f"[{hit['source']}, p. {hit['page']}]"
-    return f"[{hit['source']}, line {hit['line']}]"
+def is_refusal(reply):
+    """True if the reply is (or contains) the "not in your notes" sentence."""
+    return NOT_FOUND.rstrip(".").lower() in reply.lower()
 
 
 def build_messages(question, hits):
@@ -48,17 +46,22 @@ def build_messages(question, hits):
 
 
 def answer(question, collection=None):
-    """Retrieve, prompt the LLM, and return (answer_text, hits).
+    """Retrieve, prompt the LLM, check citations; return (answer_text, hits, citation_report).
 
     Two layers of "I don't know":
     1. Threshold gate (here): if even the best chunk is a weak match, refuse
        without calling the LLM at all: fast, and nothing to hallucinate from.
     2. The prompt rule: for questions that pass the gate but still aren't
        answered by the excerpts, the LLM is told to reply NOT_FOUND.
+    Then every citation in a real answer is checked against the excerpts the
+    model was given (see rag/citations.py). For refusals the report is None.
     """
     hits = retrieve(question, collection=collection)
     if hits[0]["score"] < config.SIMILARITY_THRESHOLD:
-        return NOT_FOUND, hits
+        return NOT_FOUND, hits, None
     messages = build_messages(question, hits)
-    reply = ollama_client.chat(messages, options={"temperature": config.LLM_TEMPERATURE})
-    return reply.strip(), hits
+    reply = ollama_client.chat(messages, options={"temperature": config.LLM_TEMPERATURE}).strip()
+    if is_refusal(reply):
+        return reply, hits, None
+    checked, report = citations.check(reply, hits)
+    return checked, hits, report

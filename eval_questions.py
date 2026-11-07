@@ -9,16 +9,13 @@ We check behaviour, not exact wording (the LLM's wording varies between runs):
 """
 
 import json
-import re
 import sys
 
 import config
 from rag import store
-from rag.generator import NOT_FOUND, answer, citation
+from rag.citations import problems
+from rag.generator import answer, citation, is_refusal
 from rag.retriever import retrieve
-
-# Matches citations like [tcs-01-finite-automata.pdf, p. 17] or [notes.md, line 42]
-CITATION_RE = re.compile(r"\[([^\[\]]+?\.(?:pdf|md|txt)),\s*(p\.|line)\s*(\d+)\]")
 
 
 def load_questions():
@@ -50,11 +47,11 @@ def scores_only(questions, collection):
 def full_run(questions, collection):
     passed = 0
     for i, q in enumerate(questions, start=1):
-        reply, hits = answer(q["question"], collection=collection)
-        refused = NOT_FOUND.rstrip(".").lower() in reply.lower()
+        reply, hits, report = answer(q["question"], collection=collection)
+        refused = is_refusal(reply)
         gated = hits[0]["score"] < config.SIMILARITY_THRESHOLD
-        cited = {f"{src}, {kind} {num}" for src, kind, num in CITATION_RE.findall(reply)}
-        retrieved = {citation(h)[1:-1] for h in hits}  # labels the model actually saw
+        # Citations as the user sees them: exact ones plus repaired typos.
+        cited = set(report["valid"]) | {right for _, right in report["repaired"]} if report else set()
 
         if q["expect"] == "refuse":
             ok = refused
@@ -67,12 +64,11 @@ def full_run(questions, collection):
             else:
                 detail = f"cited {sorted(hit)}" if hit else f"WRONG SOURCES, cited {sorted(cited) or 'nothing'}"
 
-        invented = cited - retrieved  # citations of chunks the model was never shown
         passed += ok
         print(f"{'PASS' if ok else 'FAIL'}  [{i:2}] best {hits[0]['score']:.3f}  {q['question']}")
         print(f"            {detail}")
-        if invented:
-            print(f"            warning: cited sources it was not given: {sorted(invented)}")
+        for note in problems(report) if report else []:
+            print(f"            citation check: {note}")
         if not ok:
             print(f"            reply: {' '.join(reply.split())[:300]}")
 

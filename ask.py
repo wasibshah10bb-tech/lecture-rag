@@ -8,6 +8,7 @@ import sys
 import time
 
 from rag import store
+from rag.citations import problems
 from rag.generator import answer, build_messages, citation
 
 
@@ -29,7 +30,7 @@ def main():
 
         print("Thinking... (a 7B model on CPU can take a minute)")
         start = time.perf_counter()
-        reply, hits = answer(question, collection=collection)
+        reply, hits, report = answer(question, collection=collection)
 
         if show_prompt:
             for m in build_messages(question, hits):
@@ -37,6 +38,15 @@ def main():
             print("----- end of prompt -----")
 
         print(f"\n{reply}\n")
+        if report:  # None for refusals
+            notes = problems(report)
+            if notes:
+                for note in notes:
+                    print(f"Citation check: {note}")
+            else:
+                n = len(report["valid"])
+                print(f"Citation check: {'the citation matches' if n == 1 else f'all {n} citations match'} the sources.")
+            print()
         print(f"Sources given to the model ({time.perf_counter() - start:.0f}s):")
         for h in hits:
             print(f"  {h['score']:.3f}  {citation(h)}")
