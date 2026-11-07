@@ -14,6 +14,10 @@ REQUEST_TIMEOUT = 300             # seconds; generous because a 7B model on CPU 
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 150   # characters shared by consecutive chunks of the same page
 
+# --- Embedding & storage ---
+EMBED_BATCH_SIZE = 16           # chunks sent to Ollama per /api/embed request
+COLLECTION_NAME = "lecture_notes"
+
 # --- Paths ---
 PROJECT_DIR = Path(__file__).parent
 DATA_DIR = PROJECT_DIR / "data"         # put lecture PDFs here
